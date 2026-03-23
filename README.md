@@ -1,4 +1,4 @@
-# AI Research Agent
+# AI Research Agent（阶段四）
 
 基于 LangChain 和 ECNU API 的状态驱动 Agent 系统，支持原版 Agent 和 LangGraph 两种实现。
 
