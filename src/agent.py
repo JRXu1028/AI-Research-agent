@@ -109,31 +109,45 @@ def should_continue(state: AgentState) -> bool:
     return True
 
 
-def run_agent(state: AgentState, llm_with_tools, tools_map: dict) -> AgentState:
+def run_agent(state: AgentState, llm_with_tools, tools_map: dict, max_iterations: int = 10) -> AgentState:
     """
-    运行 Agent 的主函数（状态驱动）
+    运行 Agent 的主函数（状态驱动，支持多轮推理）
     
     Args:
         state: 初始状态
         llm_with_tools: 绑定了工具的 LLM
         tools_map: 工具映射字典
+        max_iterations: 最大迭代次数（防止无限循环）
     
     Returns:
         最终状态
     
-    工作流程：
+    工作流程（ReAct 循环）：
     1. 调用模型 -> 更新 state
-    2. 如果需要工具 -> 执行工具 -> 更新 state
-    3. 再次调用模型 -> 生成最终答案 -> 更新 state
+    2. 如果需要工具 -> 执行工具 -> 回到步骤 1
+    3. 如果不需要工具 -> 返回最终答案
     """
-    # Step 1: 第一次调用模型
-    state = call_model(state, llm_with_tools)
+    iteration = 0
     
-    # Step 2: 如果需要工具，执行工具
-    if should_continue(state):
+    while iteration < max_iterations:
+        iteration += 1
+        
+        # Step 1: 调用模型
+        state = call_model(state, llm_with_tools)
+        
+        # Step 2: 检查是否需要继续
+        if not should_continue(state):
+            # 已有最终答案，结束
+            break
+        
+        # Step 3: 执行工具
         state = execute_tools(state, tools_map)
         
-        # Step 3: 基于工具结果，再次调用模型生成最终答案
-        state = call_model(state, llm_with_tools)
+        # 继续下一轮循环
+    
+    if iteration >= max_iterations:
+        print(f"⚠️  达到最大迭代次数 ({max_iterations})，强制结束")
+        if not state.get("final_answer"):
+            state["final_answer"] = "抱歉，推理过程超时"
     
     return state

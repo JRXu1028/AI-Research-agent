@@ -1,159 +1,277 @@
 # 快速开始指南
 
-## 5 分钟上手
+## 🚀 5分钟快速上手
 
-### 1. 安装依赖（1 分钟）
+### 1. 环境准备
 
 ```bash
+# 激活虚拟环境
+conda activate AIResearch
+
+# 安装依赖（如果还没安装）
 pip install -r requirements.txt
 ```
 
-### 2. 配置 API Key（1 分钟）
-
-```bash
-# Windows
-copy .env.example .env
-
-# Linux/Mac
-cp .env.example .env
-```
+### 2. 配置 API 密钥
 
 编辑 `.env` 文件：
-```
-ECNU_API_KEY=你的实际API密钥
+```bash
+ECNU_API_KEY=your_api_key_here
+ECNU_BASE_URL=https://api.ecnu.edu.cn/v1
+ECNU_MODEL_NAME=gpt-4
 ```
 
-### 3. 运行程序（3 分钟）
+### 3. 运行测试
 
+#### 方式 1：原版 Agent
 ```bash
 python main.py
 ```
 
-就这么简单！🎉
-
----
-
-## 预期输出
-
+#### 方式 2：LangGraph Agent
+```bash
+python main_langgraph.py
 ```
-🚀 初始化 LLM...
-🔧 加载工具...
-============================================================
-✅ Agent 已启动！
-📦 支持的工具: calculator
-============================================================
 
-
-============================================================
-测试 1: 请帮我计算 25 加 17 等于多少？
-============================================================
-
-📊 初始状态:
-   - messages: 1 条
-   - tool_calls: None
-   - final_answer: None
-
-🤖 调用模型...
-🤔 模型决定: 需要调用 1 个工具
-
-🔧 执行工具...
-🔧 工具调用: calculator(25.0, 17.0) = 42.0
-
-🤖 调用模型...
-🤔 模型决定: 不需要工具，直接回答
-
-📊 最终状态:
-   - messages: 4 条
-   - tool_calls: None
-   - final_answer: 25 加 17 等于 42
-
-✅ 最终答案: 25 加 17 等于 42
-============================================================
+### 4. 查看知识库
+```bash
+python view_knowledge_base.py
 ```
 
 ---
 
-## 项目结构一览
+## 📖 测试用例
+
+程序会自动运行以下测试：
+
+1. **计算问题**：`请帮我计算 25 加 17 等于多少？`
+   - 预期：调用 calculator 工具
+
+2. **知识查询**：`华东师范大学在哪里？有几个校区？`
+   - 预期：调用 knowledge_search 工具
+
+3. **普通对话**：`你好，今天天气怎么样？`
+   - 预期：直接回答
+
+4. **简单计算**：`123 + 456 = ?`
+   - 预期：调用 calculator 工具
+
+5. **技术问题**：`什么是 RAG 技术？`
+   - 预期：调用 knowledge_search 工具
+
+---
+
+## 🎯 核心概念
+
+### 1. 两种实现方式
+
+| 特性 | 原版 Agent | LangGraph Agent |
+|------|-----------|----------------|
+| 实现方式 | while 循环 | 图结构 |
+| 复杂度 | 简单 | 中等 |
+| 可视化 | 无 | 支持 |
+| 扩展性 | 中等 | 高 |
+| 功能 | 完全相同 | 完全相同 |
+
+### 2. 工作流程（ReAct 模式）
+
+```
+用户提问
+  ↓
+LLM 推理
+  ↓
+需要工具？
+  ├─ 是 → 执行工具 → 回到 LLM 推理
+  └─ 否 → 返回答案
+```
+
+### 3. 可用工具
+
+- `calculator(a, b)` - 计算加法
+- `knowledge_search(query)` - 搜索知识库
+
+---
+
+## 📁 项目结构
 
 ```
 AI Research Agent/
-├── src/                # 源代码
-│   ├── config.py      # 配置管理
-│   ├── llm.py         # LLM 初始化
-│   ├── tools.py       # 工具定义
-│   ├── state.py       # 状态定义
-│   └── agent.py       # Agent 逻辑
-└── main.py            # 程序入口
+├── src/                    # 核心代码
+│   ├── agent.py           # 原版 Agent
+│   ├── langgraph_agent.py # LangGraph Agent
+│   ├── tools.py           # 工具定义
+│   ├── rag.py             # RAG 系统
+│   └── ...
+├── docs/                   # 文档
+│   ├── PROJECT_STATUS.md  # 项目状态
+│   ├── CODE_REVIEW_SUMMARY.md
+│   └── ...
+├── main.py                # 原版演示
+├── main_langgraph.py      # LangGraph 演示
+└── requirements.txt       # 依赖
 ```
 
 ---
 
-## 下一步
+## 🔧 常用命令
 
-### 添加新工具
-
-编辑 `src/tools.py`：
-
-```python
-@tool
-def multiply(a: float, b: float) -> float:
-    """计算两个数的乘法"""
-    return a * b
-
-def get_all_tools():
-    return [calculator, multiply]  # 添加到这里
+### 运行程序
+```bash
+python main.py              # 原版 Agent
+python main_langgraph.py    # LangGraph Agent
 ```
 
-### 修改测试用例
+### 查看知识库
+```bash
+python view_knowledge_base.py
+```
 
-编辑 `main.py`：
+### 语法检查
+```bash
+python -m py_compile src/*.py
+```
+
+### 安装依赖
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 💡 使用技巧
+
+### 1. 修改测试问题
+
+编辑 `main.py` 或 `main_langgraph.py`：
 
 ```python
 test_cases = [
-    "你的问题 1",
-    "你的问题 2",
-    # 添加更多...
+    "你的问题1",
+    "你的问题2",
+    # ...
 ]
 ```
 
-### 调整模型参数
+### 2. 添加新工具
 
-编辑 `src/config.py`：
+在 `src/tools.py` 中：
 
 ```python
-class Config:
-    TEMPERATURE = 0.7  # 修改温度参数
+@tool
+def my_tool(param: str) -> str:
+    """工具描述"""
+    # 实现逻辑
+    return result
+
+def get_all_tools():
+    return [calculator, knowledge_search, my_tool]
+```
+
+### 3. 修改知识库
+
+编辑 `src/knowledge_base.py`：
+
+```python
+KNOWLEDGE_BASE = [
+    {
+        "title": "新文档标题",
+        "content": "文档内容..."
+    },
+    # ...
+]
+```
+
+然后重新运行程序，会自动重建向量数据库。
+
+### 4. 调整 RAG 检索数量
+
+在 `src/tools.py` 的 `knowledge_search` 中：
+
+```python
+results = rag_system.retrieve(query, k=3)  # 改为 k=5 检索更多
 ```
 
 ---
 
-## 常见问题
+## 🐛 常见问题
 
-### Q: 提示 "请设置环境变量 ECNU_API_KEY"
-A: 确保 `.env` 文件存在且包含正确的 API Key
+### Q: 运行时提示 "No module named 'xxx'"
 
-### Q: 如何查看详细日志？
-A: 程序已经包含详细的状态打印，查看控制台输出即可
+**A**: 安装缺失的依赖
+```bash
+pip install xxx
+```
 
-### Q: 如何只运行一个测试？
-A: 修改 `main.py` 中的 `test_cases` 列表
+### Q: API 调用失败
+
+**A**: 检查 `.env` 文件中的 API 密钥是否正确
+
+### Q: 知识库为空
+
+**A**: 删除 `data/chroma_db` 文件夹，重新运行程序
+
+### Q: 程序卡住不动
+
+**A**: 检查网络连接，确保可以访问 API
 
 ---
 
-## 学习路径
+## 📚 进阶阅读
 
-1. ✅ 运行程序，理解基本流程
-2. 📖 阅读 `PROJECT_STRUCTURE.md` 了解架构
-3. 🔧 尝试添加新工具
-4. 🎨 修改状态结构
-5. 🚀 准备迁移到 LangGraph
+- `docs/PROJECT_STATUS.md` - 项目完整状态
+- `docs/CODE_REVIEW_SUMMARY.md` - 代码审查总结
+- `docs/LANGGRAPH_MIGRATION.md` - LangGraph 迁移指南
+- `docs/RAG_IMPLEMENTATION.md` - RAG 实现文档
 
 ---
 
-## 获取帮助
+## ✅ 验证安装
 
-- 查看 `README.md` - 完整项目说明
-- 查看 `PROJECT_STRUCTURE.md` - 详细架构文档
-- 查看代码注释 - 每个函数都有详细说明
+运行以下命令验证环境：
 
-祝你使用愉快！🎉
+```bash
+# 1. 检查 Python 版本
+python --version  # 应该是 3.8+
+
+# 2. 检查依赖
+pip list | grep langchain
+pip list | grep chromadb
+
+# 3. 运行测试
+python main.py
+```
+
+如果看到类似输出，说明安装成功：
+
+```
+============================================================
+AI Research Agent - 启动中...
+============================================================
+[1/4] 初始化 LLM...
+      LLM 初始化完成
+[2/5] 初始化 RAG 系统...
+      RAG 系统初始化完成
+...
+```
+
+---
+
+## 🎉 开始使用
+
+现在你可以：
+
+1. ✅ 运行演示程序
+2. ✅ 修改测试问题
+3. ✅ 添加新工具
+4. ✅ 扩展知识库
+5. ✅ 部署到生产环境
+
+**祝使用愉快！** 🚀
+
+---
+
+## 📞 获取帮助
+
+- 查看文档：`docs/` 目录
+- 查看代码：`src/` 目录
+- 运行示例：`main.py` 或 `main_langgraph.py`
