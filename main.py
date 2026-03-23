@@ -15,6 +15,7 @@ from src.llm import create_llm, bind_tools_to_llm
 from src.tools import get_all_tools, create_tools_map
 from src.state import create_initial_state
 from src.agent import run_agent
+from src.rag import initialize_rag_system
 
 
 def print_state_info(state, label):
@@ -41,25 +42,31 @@ def main():
     llm = create_llm()
     print("      LLM 初始化完成")
     
-    # 2. 获取工具
-    print("\n[2/4] 加载工具...")
+    # 2. 初始化 RAG 系统（知识库）
+    print("\n[2/5] 初始化 RAG 系统...")
+    initialize_rag_system(force_reload=False)
+    
+    # 3. 获取工具
+    print("\n[3/5] 加载工具...")
     tools = get_all_tools()
     tools_map = create_tools_map(tools)
     print(f"      已加载 {len(tools)} 个工具: {', '.join(tools_map.keys())}")
     
-    # 3. 绑定工具到 LLM
-    print("\n[3/4] 绑定工具到 LLM...")
+    # 4. 绑定工具到 LLM
+    print("\n[4/5] 绑定工具到 LLM...")
     llm_with_tools = bind_tools_to_llm(llm, tools)
     print("      工具绑定完成")
     
-    print("\n[4/4] Agent 准备就绪!")
+    print("\n[5/5] Agent 准备就绪!")
     print("=" * 60)
     
-    # 4. 测试用例
+    # 5. 测试用例
     test_cases = [
         "请帮我计算 25 加 17 等于多少？",
-        "你好，今天天气怎么样？",
+        "华东师范大学在哪里？有几个校区？",
+        "华东师范大学的校训是什么？",
         "123 + 456 = ?",
+        "什么是 RAG 技术？",
     ]
     
     for i, question in enumerate(test_cases, 1):

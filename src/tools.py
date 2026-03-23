@@ -23,11 +23,42 @@ def calculator(a: float, b: float) -> float:
     return result
 
 
-# 可以在这里添加更多工具
-# @tool
-# def search(query: str) -> str:
-#     """搜索工具"""
-#     return f"搜索结果: {query}"
+@tool
+def knowledge_search(query: str) -> str:
+    """
+    从知识库中搜索相关信息
+    
+    当用户询问关于华东师范大学、Python、LangChain、RAG等知识库中的内容时使用此工具。
+    
+    Args:
+        query: 搜索查询
+    
+    Returns:
+        相关的知识库内容
+    """
+    from .rag import get_rag_system
+    
+    print(f"🔧 工具调用: knowledge_search('{query}')")
+    
+    # 获取 RAG 系统实例
+    rag_system = get_rag_system()
+    
+    if rag_system is None:
+        return "知识库未初始化，无法搜索"
+    
+    # 检索相关文档
+    results = rag_system.retrieve(query, k=3)
+    
+    if not results:
+        return "未找到相关信息"
+    
+    # 格式化返回结果
+    context = "\n\n".join([
+        f"【文档{i+1}】(相似度: {score:.4f})\n{doc.page_content}"
+        for i, (doc, score) in enumerate(results)
+    ])
+    
+    return context
 
 
 def get_all_tools():
@@ -37,7 +68,7 @@ def get_all_tools():
     Returns:
         工具列表
     """
-    return [calculator]
+    return [calculator, knowledge_search]
 
 
 def create_tools_map(tools: list) -> dict:
