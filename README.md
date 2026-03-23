@@ -1,7 +1,3 @@
-
-# AI-Research-agent
-正在学习agent搭建...这是我的第一个agent项目，我将不断优化
-
 # AI Research Agent
 
 基于 LangChain 和 ECNU API 的状态驱动 Agent 系统。
