@@ -30,8 +30,11 @@ def create_initial_state(user_input: str) -> AgentState:
     from langchain_core.messages import HumanMessage
     
     return {
-        "messages": [HumanMessage(content=user_input)],
+        "messages": [HumanMessage(content=user_input)], # HumanMessage是 BaseMessage 的一种具体实现，用于区分消息的角色（role）
         "tool_calls": None,
         "final_answer": None,
         "error": None,
     }
+    # - HumanMessage：用户消息
+    # - AIMessage：模型回复
+    # - ToolMessage：工具调用返回结果

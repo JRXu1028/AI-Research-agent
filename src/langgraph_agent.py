@@ -97,9 +97,18 @@ def create_langgraph_agent(llm, tools_map):
     - 完全复用现有逻辑
     """
     # 创建状态图
-    workflow = StateGraph(AgentState)
+    workflow = StateGraph(AgentState) # AgentState 定义了这个图中“状态”的数据结构
     
     # 使用 partial 绑定上下文，避免污染状态
+
+    # 使用 functools.partial 对 agent_node 进行“参数预绑定”
+    # 相当于创建一个新的函数 agent_with_context
+    # 这个函数已经默认带上了：
+    # - llm
+    # - tools_map
+    #
+    # 后续调用 agent_with_context(state) 时：
+    # 实际等价于 agent_node(state, llm=llm, tools_map=tools_map)
     agent_with_context = partial(agent_node, llm=llm, tools_map=tools_map)
     tool_with_context = partial(tool_node, tools_map=tools_map)
     
