@@ -69,7 +69,16 @@ def main():
         print('='*60)
         
         try:
-            # 创建初始状态
+            # 创建初始状态initial_state
+            """
+            create_initial_state(user_input: str) -> AgentState: 的返回
+            return {
+                    "messages": [HumanMessage(content=user_input)],
+                    "tool_calls": None,
+                    "final_answer": None,
+                    "error": None,
+                    }
+            """
             initial_state = create_initial_state(question)
             print_state_info(initial_state, "初始状态")
             
