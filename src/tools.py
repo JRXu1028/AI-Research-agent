@@ -68,9 +68,11 @@ def get_all_tools():
     Returns:
         工具列表
     """
+    # 返回一个工具函数列表
     return [calculator, knowledge_search]
 
 
+#  -> dict: 是函数的返回类型标注（type hint）
 def create_tools_map(tools: list) -> dict:
     """
     创建工具名称到工具对象的映射
@@ -81,4 +83,8 @@ def create_tools_map(tools: list) -> dict:
     Returns:
         {工具名称: 工具对象} 的字典
     """
+
+    # 遍历 tools 列表中的每一个 tool：
+    # - tool.name 作为 key（工具名称）
+    # - tool 本身作为 value（工具对象）
     return {tool.name: tool for tool in tools}

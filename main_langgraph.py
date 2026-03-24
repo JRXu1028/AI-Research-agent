@@ -47,8 +47,8 @@ def main():
     
     # 3. 获取工具（不需要绑定到 LLM）
     print("\n[3/4] 加载工具...")
-    tools = get_all_tools()
-    tools_map = create_tools_map(tools)
+    tools = get_all_tools() # 工具函数列表
+    tools_map = create_tools_map(tools) # key:工具名称  value：函数
     print(f"      已加载 {len(tools)} 个工具: {', '.join(tools_map.keys())}")
     
     print("\n[4/4] LangGraph Agent 准备就绪!")

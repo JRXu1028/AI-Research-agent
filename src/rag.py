@@ -53,16 +53,22 @@ def initialize_rag_system(force_reload=False):
     Returns:
         RAGSystem 实例
     """
+    # 声明使用全局变量 _rag_system_instance
+    # 用于保存已经初始化好的 RAG 系统实例
     global _rag_system_instance
     
+    # 如果还没有初始化，或者强制重新加载
     if _rag_system_instance is None or force_reload:
         from .vector_store import create_vector_store
         
         print("   📚 初始化知识库...")
         vector_store = create_vector_store(force_reload=force_reload)
+        # 使用向量数据库初始化 RAG 系统
+        # 并将实例保存到全局变量中（单例）
         _rag_system_instance = RAGSystem(vector_store)
         print("   ✅ 知识库初始化完成")
     
+    # 返回全局 RAG 系统实例
     return _rag_system_instance
 
 
