@@ -11,6 +11,7 @@
 - ✅ 向量数据库（Chroma + HuggingFace Embeddings）
 - ✅ 两种 Agent 实现（原版 + LangGraph）
 - ✅ 标准 ReAct 模式（多轮推理）
+- ✅ Memory 支持（多轮对话记忆）
 - ✅ 易于扩展和维护
 
 ## 技术栈
@@ -39,11 +40,13 @@ AI Research Agent/
 │   └── rag.py                # RAG 系统
 ├── docs/                      # 文档目录
 │   ├── RAG_IMPLEMENTATION.md           # RAG 实现详解
-│   └── LANGGRAPH_IMPLEMENTATION.md     # LangGraph 实现详解
+│   ├── LANGGRAPH_IMPLEMENTATION.md     # LangGraph 实现详解
+│   └── MEMORY_IMPLEMENTATION.md        # Memory 实现详解
 ├── data/                      # 数据目录
 │   └── chroma_db/            # 向量数据库持久化
 ├── main.py                    # 原版 Agent 演示
 ├── main_langgraph.py          # LangGraph Agent 演示
+├── main_langgraph_memory.py   # LangGraph Agent with Memory 演示
 ├── view_knowledge_base.py     # 查看知识库工具
 ├── ALL_CODE.py                # 完整代码合集（方便分享给 AI）
 ├── ALL_CODE_README.md         # 代码合集使用说明
@@ -62,7 +65,7 @@ AI Research Agent/
 | `llm.py` | 初始化和配置语言模型 |
 | `tools.py` | 定义 Agent 可用的工具（calculator, knowledge_search） |
 | `agent.py` | 原版 Agent 核心逻辑（支持多轮推理） |
-| `langgraph_agent.py` | LangGraph Agent 实现（标准 ReAct 模式） |
+| `langgraph_agent.py` | LangGraph Agent 实现（标准 ReAct 模式 + Memory） |
 | `embeddings.py` | 创建 Embedding 模型（HuggingFace） |
 | `vector_store.py` | 管理向量数据库（Chroma） |
 | `knowledge_base.py` | 定义知识库数据（8个文档） |
@@ -74,6 +77,7 @@ AI Research Agent/
 |------|------|
 | `main.py` | 原版 Agent 演示（while 循环实现） |
 | `main_langgraph.py` | LangGraph Agent 演示（图结构实现） |
+| `main_langgraph_memory.py` | LangGraph Agent with Memory 演示（多轮对话） |
 | `view_knowledge_base.py` | 查看知识库内容 |
 
 ## 快速开始
@@ -114,6 +118,11 @@ python main.py
 python main_langgraph.py
 ```
 
+**LangGraph Agent with Memory**（图结构 + 多轮对话）：
+```bash
+python main_langgraph_memory.py
+```
+
 **查看知识库**：
 ```bash
 python view_knowledge_base.py
@@ -123,16 +132,17 @@ python view_knowledge_base.py
 
 ## 核心功能
 
-### 1. 两种 Agent 实现
+### 1. 三种 Agent 实现
 
-| 特性 | 原版 Agent | LangGraph Agent |
-|------|-----------|----------------|
-| 实现方式 | while 循环 | 图结构（StateGraph） |
-| 复杂度 | 简单 | 中等 |
-| 可视化 | 无 | 支持 |
-| 扩展性 | 中等 | 高 |
-| 多轮推理 | ✅ 支持 | ✅ 支持 |
-| 功能 | 完全相同 | 完全相同 |
+| 特性 | 原版 Agent | LangGraph Agent | LangGraph + Memory |
+|------|-----------|----------------|--------------------|
+| 实现方式 | while 循环 | 图结构（StateGraph） | 图结构 + Checkpointer |
+| 复杂度 | 简单 | 中等 | 中等 |
+| 可视化 | 无 | 支持 | 支持 |
+| 扩展性 | 中等 | 高 | 高 |
+| 多轮推理 | ✅ 支持 | ✅ 支持 | ✅ 支持 |
+| 对话记忆 | ❌ 不支持 | ❌ 不支持 | ✅ 支持 |
+| 功能 | 基础完整 | 基础完整 | 完整 + Memory |
 
 ### 2. 工具系统
 
@@ -154,7 +164,29 @@ Agent 可以自动判断何时需要使用工具：
 - 华东师范大学相关信息（5个文档）
 - 技术知识（Python、LangChain、RAG）
 
-### 4. 向量数据库
+### 5. Memory 功能（多轮对话）
+
+使用 LangGraph 的 MemorySaver 实现对话历史记忆：
+
+**特点**：
+- 记住上下文（可以引用之前的对话）
+- 支持多轮对话
+- 使用 thread_id 区分不同会话
+
+**示例**：
+```python
+# 第 1 轮
+用户: 请帮我计算 25 加 17
+Agent: 42
+
+# 第 2 轮（引用上一轮结果）
+用户: 再加上 10 呢？
+Agent: 52  # Agent 记得上一轮的 42
+```
+
+> 📖 详细说明请查看 [docs/MEMORY_IMPLEMENTATION.md](docs/MEMORY_IMPLEMENTATION.md)
+
+### 6. 向量数据库
 
 使用 Chroma + HuggingFace Embeddings：
 
@@ -376,6 +408,7 @@ A: 使用 `ALL_CODE.py` 文件，包含了所有代码，方便复制粘贴给 A
 - **[QUICKSTART.md](QUICKSTART.md)** - 5分钟快速上手指南
 - **[docs/RAG_IMPLEMENTATION.md](docs/RAG_IMPLEMENTATION.md)** - RAG 系统实现详解
 - **[docs/LANGGRAPH_IMPLEMENTATION.md](docs/LANGGRAPH_IMPLEMENTATION.md)** - LangGraph Agent 实现详解
+- **[docs/MEMORY_IMPLEMENTATION.md](docs/MEMORY_IMPLEMENTATION.md)** - Memory 功能实现详解
 - **[ALL_CODE_README.md](ALL_CODE_README.md)** - 代码合集使用说明
 
 ## 为什么选择这个架构？
