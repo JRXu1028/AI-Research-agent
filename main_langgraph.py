@@ -47,8 +47,8 @@ def main():
     
     # 3. 获取工具（不需要绑定到 LLM）
     print("\n[3/4] 加载工具...")
-    tools = get_all_tools() # 工具函数列表
-    tools_map = create_tools_map(tools) # key:工具名称  value：函数
+    tools = get_all_tools()  # 工具函数列表
+    tools_map = create_tools_map(tools)  # key:工具名称  value：函数
     print(f"      已加载 {len(tools)} 个工具: {', '.join(tools_map.keys())}")
     
     print("\n[4/4] LangGraph Agent 准备就绪!")
@@ -69,16 +69,14 @@ def main():
         print('='*60)
         
         try:
-            # 创建初始状态initial_state
-            """
-            create_initial_state(user_input: str) -> AgentState: 的返回
-            return {
-                    "messages": [HumanMessage(content=user_input)],
-                    "tool_calls": None,
-                    "final_answer": None,
-                    "error": None,
-                    }
-            """
+            # 创建初始状态
+            # create_initial_state(user_input: str) -> AgentState 的返回：
+            # return {
+            #     "messages": [HumanMessage(content=user_input)],
+            #     "tool_calls": None,
+            #     "final_answer": None,
+            #     "error": None,
+            # }
             initial_state = create_initial_state(question)
             print_state_info(initial_state, "初始状态")
             
