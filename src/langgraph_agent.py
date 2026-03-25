@@ -69,7 +69,13 @@ def should_continue(state: AgentState) -> str:
         print(f"🔀 [Router] LLM 给出最终答案")
         return "end"
     
-    # 默认继续（理论上不应该到这里）
+    # 默认继续（此项目理论上不应该到这里）因为逻辑为
+    """
+    if response.tool_calls:
+        state["tool_calls"] = response.tool_calls
+    else:
+        state["final_answer"] = response.content
+    """
     print(f"🔀 [Router] 继续推理")
     return "continue"
 
@@ -99,7 +105,7 @@ def create_langgraph_agent(llm, tools_map):
     # 创建状态图
     workflow = StateGraph(AgentState) # AgentState 定义了这个图中“状态”的数据结构
     
-    # 使用 partial 绑定上下文，避免污染状态
+    # 使用 partial 绑定上下文，避免污染状态    把函数需要的部分参数提前固定，生成一个新的函数，从而在调用时自动携带这些参数（即上下文）
 
     # 使用 functools.partial 对 agent_node 进行“参数预绑定”
     # 相当于创建一个新的函数 agent_with_context
@@ -116,24 +122,27 @@ def create_langgraph_agent(llm, tools_map):
     workflow.add_node("agent", agent_with_context)
     workflow.add_node("tools", tool_with_context)
     
-    # 设置入口点
+    # 设置入口点  指定流程从哪个节点开始执行
     workflow.set_entry_point("agent")
     
     # 添加条件边：agent → tools 或 END
+    # 含义：从 "agent" 节点出来之后   调用 should_continue(state)   根据返回值决定下一步走向
     workflow.add_conditional_edges(
         "agent",
         should_continue,
         {
             "tools": "tools",
             "end": END,
-            "continue": "agent"  # 支持继续推理
+            "continue": "agent"  # 支持继续推理(此项目理论不会到这)
         }
     )
     
     # 添加边：tools → agent（形成 ReAct 循环）
+    # 含义：从"agent"节点出来之后   进入"tools"节点
     workflow.add_edge("tools", "agent")
     
-    # 编译图
+    # 编译图 把定义的流程图 “编译” 成一个可执行对象
+    # 之后就可以： app.invoke(initial_state)  来运行整个 Agent
     app = workflow.compile()
     
     return app
@@ -160,5 +169,21 @@ def run_langgraph_agent(state: AgentState, llm, tools_map: dict) -> AgentState:
     
     # 运行
     final_state = agent.invoke(state)
+    # 执行这个 Agent
+    # 从 state 开始，按照图的流程自动运行：
+
+    # 实际发生：
+    # state
+    #   ↓
+    # agent_node（LLM）
+    #   ↓
+    # 是否调用工具？
+    #   ↓
+    # tool_node（如果需要）
+    #   ↓
+    # 再回 agent_node
+    #   ↓
+    # 直到 should_continue 返回 "end"
     
+    # 返回最终状态（里面包含 final_answer 等信息）
     return final_state

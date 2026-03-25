@@ -28,7 +28,28 @@ def call_model(state: AgentState, llm_with_tools) -> AgentState:
     
     # 更新状态：添加 AI 响应
     state["messages"].append(response)
-    
+
+    """
+    response结构
+
+    response = AIMessage(
+        content="25 + 17 等于 42",
+        tool_calls=[]
+    )
+
+    response = AIMessage(
+    content="",  # 可能为空
+    tool_calls=[
+        {
+            "name": "calculator",
+            "args": {
+                "expression": "25 + 17"
+            },
+            "id": "call_123"
+        }
+    ]
+)
+    """
     # 检查是否有工具调用
     if response.tool_calls:
         print(f"🤔 模型决定: 需要调用 {len(response.tool_calls)} 个工具")
@@ -52,6 +73,18 @@ def execute_tools(state: AgentState, tools_map: dict) -> AgentState:
     Returns:
         更新后的状态
     """
+
+    """
+    tool_calls=[
+        {
+            "name": "calculator",
+            "args": {
+                "expression": "25 + 17"
+            },
+            "id": "call_123"
+        }
+    ]
+    """
     tool_calls = state.get("tool_calls")
     
     if not tool_calls:
@@ -68,6 +101,7 @@ def execute_tools(state: AgentState, tools_map: dict) -> AgentState:
         # 从工具映射中获取工具并调用
         tool = tools_map.get(tool_name)
         if tool:
+            # 执行工具
             tool_result = tool.invoke(tool_args)
         else:
             tool_result = f"错误: 未找到工具 '{tool_name}'"
@@ -80,6 +114,26 @@ def execute_tools(state: AgentState, tools_map: dict) -> AgentState:
                 tool_call_id=tool_call["id"]
             )
         )
+        """
+        messages = [
+            HumanMessage(content="25 + 17 等于多少？"),
+
+            AIMessage(
+                content="",
+                tool_calls=[{"name": "calculator", "args": {...}, "id": "1"}]
+            ),
+
+            ToolMessage(
+                content="42",
+                tool_call_id="1"
+            ),
+            
+            ...
+            AIMessage(
+                content="25 + 17 等于 42"
+            )
+        ]
+        """
     
     # 清空 tool_calls（已执行完毕）
     state["tool_calls"] = None
