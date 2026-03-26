@@ -23,42 +23,45 @@
 - **Embedding**: HuggingFace sentence-transformers
 - **API**: ECNU API（OpenAI 兼容）
 - **Web 框架**: FastAPI + Uvicorn
-- **前端**: Vue.js 3
+- **前端**: Vue 3 + Vite
 
 ## 项目结构
 
 ```
 AI Research Agent/
-├── src/                       # 源代码目录
-│   ├── __init__.py           # 包初始化
+├── src/                       # 后端源代码
+│   ├── agent.py              # Agent 核心逻辑
+│   ├── langgraph_agent.py    # LangGraph Agent 实现
 │   ├── config.py             # 配置管理
 │   ├── llm.py                # LLM 初始化
 │   ├── state.py              # 状态定义
 │   ├── tools.py              # 工具定义
-│   ├── agent.py              # Agent 核心逻辑（原版）
-│   ├── langgraph_agent.py    # LangGraph Agent 实现
+│   ├── rag.py                # RAG 系统
 │   ├── embeddings.py         # Embedding 模型
 │   ├── vector_store.py       # 向量数据库
-│   ├── knowledge_base.py     # 知识库数据
-│   └── rag.py                # RAG 系统
-├── static/                    # 前端静态文件
-│   └── index.html            # Web 聊天界面
-├── docs/                      # 文档目录
-│   ├── RAG_IMPLEMENTATION.md           # RAG 实现详解
-│   ├── LANGGRAPH_IMPLEMENTATION.md     # LangGraph 实现详解
-│   └── MEMORY_IMPLEMENTATION.md        # Memory 实现详解
+│   └── knowledge_base.py     # 知识库数据
+├── frontend/                  # Vue 3 前端
+│   ├── src/
+│   │   ├── App.vue           # 主组件
+│   │   ├── main.js           # 入口文件
+│   │   └── style.css         # 全局样式
+│   ├── index.html            # HTML 模板
+│   ├── package.json          # 前端依赖
+│   └── vite.config.js        # Vite 配置
+├── docs/                      # 文档
+│   ├── RAG_IMPLEMENTATION.md
+│   ├── LANGGRAPH_IMPLEMENTATION.md
+│   └── MEMORY_IMPLEMENTATION.md
 ├── data/                      # 数据目录
-│   └── chroma_db/            # 向量数据库持久化
+│   └── chroma_db/            # 向量数据库
 ├── app.py                     # FastAPI Web 服务
-├── main.py                    # 原版 Agent 演示
-├── main_langgraph.py          # LangGraph Agent 演示
-├── main_langgraph_memory.py   # LangGraph Agent with Memory 演示
+├── main.py                    # 命令行演示（原版）
+├── main_langgraph.py          # 命令行演示（LangGraph）
+├── main_langgraph_memory.py   # 命令行演示（Memory）
 ├── view_knowledge_base.py     # 查看知识库工具
-├── ALL_CODE.py                # 完整代码合集（方便分享给 AI）
-├── QUICKSTART.md              # 快速上手指南（命令行）
-├── WEB_QUICKSTART.md          # Web 应用快速启动指南
-├── requirements.txt           # 依赖列表
+├── requirements.txt           # Python 依赖
 ├── .env.example              # 环境变量模板
+├── QUICKSTART.md              # 快速上手指南
 └── README.md                 # 本文件
 ```
 
@@ -90,7 +93,7 @@ AI Research Agent/
 
 ### 方式一：Web 应用（推荐）
 
-**1. 安装依赖**
+**1. 安装 Python 依赖**
 ```bash
 pip install -r requirements.txt
 ```
@@ -101,15 +104,25 @@ cp .env.example .env
 # 编辑 .env 文件，填入你的 ECNU API Key
 ```
 
-**3. 启动 Web 服务**
+**3. 安装前端依赖**
+```bash
+cd frontend
+npm install
+```
+
+**4. 启动后端服务**
 ```bash
 python app.py
 ```
 
-**4. 打开浏览器**
-访问：http://localhost:8000
+**5. 启动前端开发服务器**
+```bash
+cd frontend
+npm run dev
+```
 
-> 💡 详细说明请查看 [WEB_QUICKSTART.md](WEB_QUICKSTART.md)
+**6. 打开浏览器**
+访问：http://localhost:3000
 
 ### 方式二：命令行
 
@@ -410,8 +423,7 @@ A: 使用 `ALL_CODE.py` 文件，包含了所有代码，方便复制粘贴给 A
 
 ## 文档
 
-- **[WEB_QUICKSTART.md](WEB_QUICKSTART.md)** - Web 应用快速启动指南
-- **[QUICKSTART.md](QUICKSTART.md)** - 命令行快速上手指南
+- **[QUICKSTART.md](QUICKSTART.md)** - 快速上手指南
 - **[docs/RAG_IMPLEMENTATION.md](docs/RAG_IMPLEMENTATION.md)** - RAG 系统实现详解
 - **[docs/LANGGRAPH_IMPLEMENTATION.md](docs/LANGGRAPH_IMPLEMENTATION.md)** - LangGraph Agent 实现详解
 - **[docs/MEMORY_IMPLEMENTATION.md](docs/MEMORY_IMPLEMENTATION.md)** - Memory 功能实现详解

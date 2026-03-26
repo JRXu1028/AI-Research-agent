@@ -7,10 +7,9 @@ FastAPI 后端服务
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
+from contextlib import asynccontextmanager
 import uvicorn
 
 from src.llm import create_llm
@@ -21,23 +20,7 @@ from src.langgraph_agent import run_langgraph_agent_with_memory
 
 
 # ============================================================
-# 1. FastAPI 应用初始化
-# ============================================================
-
-app = FastAPI(title="AI Research Agent API", version="1.0.0")
-
-# 配置 CORS（允许浏览器跨域访问）
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # 本地开发允许所有来源
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-
-# ============================================================
-# 2. 全局变量（Agent 组件）
+# 1. 全局变量
 # ============================================================
 
 llm = None
@@ -45,31 +28,12 @@ tools_map = None
 
 
 # ============================================================
-# 3. 请求/响应模型
+# 2. 生命周期管理
 # ============================================================
 
-class ChatRequest(BaseModel):
-    """聊天请求"""
-    message: str  # 用户消息
-    thread_id: Optional[str] = "default"  # 会话 ID（用于 Memory）
-
-
-class ChatResponse(BaseModel):
-    """聊天响应"""
-    answer: str  # Agent 回答
-    thread_id: str  # 会话 ID
-    message_count: int  # 当前对话历史消息数
-
-
-# ============================================================
-# 4. 启动事件（初始化 Agent）
-# ============================================================
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    服务启动时初始化 Agent 组件
-    """
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期管理"""
     global llm, tools_map
     
     print("\n" + "=" * 70)
@@ -95,6 +59,47 @@ async def startup_event():
     print("✅ AI Research Agent 服务启动成功!")
     print("   访问地址: http://localhost:8000")
     print("=" * 70 + "\n")
+    
+    yield
+    
+    print("\n🛑 服务关闭中...")
+
+
+# ============================================================
+# 3. FastAPI 应用初始化
+# ============================================================
+
+app = FastAPI(
+    title="AI Research Agent API",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+# 配置 CORS（允许浏览器跨域访问）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 本地开发允许所有来源
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ============================================================
+# 4. 请求/响应模型
+# ============================================================
+
+class ChatRequest(BaseModel):
+    """聊天请求"""
+    message: str  # 用户消息
+    thread_id: Optional[str] = "default"  # 会话 ID（用于 Memory）
+
+
+class ChatResponse(BaseModel):
+    """聊天响应"""
+    answer: str  # Agent 回答
+    thread_id: str  # 会话 ID
+    message_count: int  # 当前对话历史消息数
 
 
 # ============================================================
@@ -103,8 +108,8 @@ async def startup_event():
 
 @app.get("/")
 async def root():
-    """根路径 - 返回前端页面"""
-    return FileResponse("static/index.html")
+    """根路径"""
+    return {"message": "AI Research Agent API", "docs": "/docs"}
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -159,15 +164,7 @@ async def health():
 
 
 # ============================================================
-# 6. 静态文件服务（前端）
-# ============================================================
-
-# 挂载静态文件目录
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-
-# ============================================================
-# 7. 主函数
+# 6. 主函数
 # ============================================================
 
 if __name__ == "__main__":
@@ -176,5 +173,5 @@ if __name__ == "__main__":
         "app:app",
         host="0.0.0.0",
         port=8000,
-        reload=False  # 生产环境关闭自动重载
+        reload=False
     )
