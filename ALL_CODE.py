@@ -19,6 +19,9 @@ AI Research Agent - 完整代码合集
 - src/langgraph_agent.py # LangGraph Agent
 - main.py                # 原版 Agent 演示
 - main_langgraph.py      # LangGraph Agent 演示
+- main_langgraph_memory.py # LangGraph Agent with Memory 演示
+- app.py                 # FastAPI Web 服务
+- static/index.html      # Web 聊天界面
 - view_knowledge_base.py # 查看知识库工具
 
 =============================================================================
@@ -766,16 +769,19 @@ def run_agent(state, llm_with_tools, tools_map: dict, max_iterations: int = 10):
 
 
 # =============================================================================
+# =============================================================================
 # 文件: src/langgraph_agent.py
-# 说明: LangGraph Agent 实现模块
+# 说明: LangGraph Agent 实现模块（支持 Memory）
 # =============================================================================
 
 """
 LangGraph Agent 模块
 基于 LangGraph 实现的状态驱动 Agent（标准 ReAct 模式）
+支持 Memory（对话历史持久化）
 """
 
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import MemorySaver
 from functools import partial
 # from .state import AgentState
 # from .agent import call_model, execute_tools
@@ -841,18 +847,28 @@ def should_continue_langgraph(state) -> str:
         print(f"🔀 [Router] LLM 给出最终答案")
         return "end"
     
-    # 默认继续（理论上不应该到这里）
+    # 默认继续（此项目理论上不应该到这里）
+    # 因为逻辑为：
+    # if response.tool_calls:
+    #     state["tool_calls"] = response.tool_calls
+    # else:
+    #     state["final_answer"] = response.content
     print(f"🔀 [Router] 继续推理")
     return "continue"
 
 
 # ============================================================
-# 3. LangGraph 构建（标准 ReAct 模式）
+# 3. LangGraph 构建（标准 ReAct 模式 + Memory 支持）
 # ============================================================
 
-def create_langgraph_agent(llm, tools_map):
+def create_langgraph_agent(llm, tools_map, with_memory=False):
     """
-    创建 LangGraph Agent（标准 ReAct 模式）
+    创建 LangGraph Agent（标准 ReAct 模式 + Memory 支持）
+    
+    Args:
+        llm: 语言模型
+        tools_map: 工具映射字典
+        with_memory: 是否启用 Memory（对话历史持久化）
     
     流程：
     START → agent (LLM 推理)
@@ -867,11 +883,22 @@ def create_langgraph_agent(llm, tools_map):
     - 支持多轮推理
     - LLM 驱动流程
     - 完全复用现有逻辑
+    - 可选的 Memory 支持（记住对话历史）
     """
     # 创建状态图
-    workflow = StateGraph(AgentState)
+    workflow = StateGraph(AgentState)  # AgentState 定义了这个图中"状态"的数据结构
     
     # 使用 partial 绑定上下文，避免污染状态
+    # 把函数需要的部分参数提前固定，生成一个新的函数，从而在调用时自动携带这些参数（即上下文）
+    
+    # 使用 functools.partial 对 agent_node 进行"参数预绑定"
+    # 相当于创建一个新的函数 agent_with_context
+    # 这个函数已经默认带上了：
+    # - llm
+    # - tools_map
+    #
+    # 后续调用 agent_with_context(state) 时：
+    # 实际等价于 agent_node(state, llm=llm, tools_map=tools_map)
     agent_with_context = partial(agent_node, llm=llm, tools_map=tools_map)
     tool_with_context = partial(tool_node, tools_map=tools_map)
     
@@ -879,25 +906,40 @@ def create_langgraph_agent(llm, tools_map):
     workflow.add_node("agent", agent_with_context)
     workflow.add_node("tools", tool_with_context)
     
-    # 设置入口点
+    # 设置入口点：指定流程从哪个节点开始执行
     workflow.set_entry_point("agent")
     
     # 添加条件边：agent → tools 或 END
+    # 含义：从 "agent" 节点出来之后，调用 should_continue(state)，根据返回值决定下一步走向
     workflow.add_conditional_edges(
         "agent",
         should_continue_langgraph,
         {
             "tools": "tools",
             "end": END,
-            "continue": "agent"  # 支持继续推理
+            "continue": "agent"  # 支持继续推理（此项目理论不会到这）
         }
     )
     
     # 添加边：tools → agent（形成 ReAct 循环）
+    # 含义：从 "tools" 节点出来之后，进入 "agent" 节点
     workflow.add_edge("tools", "agent")
     
-    # 编译图
-    app = workflow.compile()
+    # 编译图：把定义的流程图 "编译" 成一个可执行对象
+    # 之后就可以：app.invoke(initial_state) 来运行整个 Agent
+    if with_memory:
+        # 使用 MemorySaver 作为 checkpointer
+        # 这会自动保存每一步的状态，支持对话历史
+        # 👉 启用 Memory 后：LangGraph 会自动保存每一步 state
+        # Memory 的作用：
+        # ✔ 记住对话历史
+        # ✔ 支持多轮对话
+        # ✔ 每个 thread_id 是一个会话 config = {"configurable": {"thread_id": thread_id}}
+        memory = MemorySaver()
+        app = workflow.compile(checkpointer=memory)
+        print("   ✅ Memory 已启用（支持多轮对话）")
+    else:
+        app = workflow.compile()
     
     return app
 
@@ -908,7 +950,7 @@ def create_langgraph_agent(llm, tools_map):
 
 def run_langgraph_agent(state, llm, tools_map: dict):
     """
-    运行 LangGraph Agent
+    运行 LangGraph Agent（无 Memory）
     
     Args:
         state: 初始状态
@@ -919,10 +961,51 @@ def run_langgraph_agent(state, llm, tools_map: dict):
         最终状态
     """
     # 创建 LangGraph Agent
-    agent = create_langgraph_agent(llm, tools_map)
+    agent = create_langgraph_agent(llm, tools_map, with_memory=False)
     
     # 运行
+    # 执行这个 Agent，从 state 开始，按照图的流程自动运行：
+    # 实际发生：
+    # state
+    #   ↓
+    # agent_node（LLM）
+    #   ↓
+    # 是否调用工具？
+    #   ↓
+    # tool_node（如果需要）
+    #   ↓
+    # 再回 agent_node
+    #   ↓
+    # 直到 should_continue 返回 "end"
     final_state = agent.invoke(state)
+    
+    # 返回最终状态（里面包含 final_answer 等信息）
+    return final_state
+
+
+def run_langgraph_agent_with_memory(state, llm, tools_map: dict, thread_id: str):
+    """
+    运行 LangGraph Agent（带 Memory）
+    
+    Args:
+        state: 初始状态
+        llm: 语言模型
+        tools_map: 工具映射字典
+        thread_id: 对话线程 ID（用于区分不同的对话会话）
+    
+    Returns:
+        最终状态
+    """
+    # 创建 LangGraph Agent（启用 Memory）
+    agent = create_langgraph_agent(llm, tools_map, with_memory=True)
+    
+    # 配置：指定 thread_id 来标识对话会话
+    config = {"configurable": {"thread_id": thread_id}}
+    
+    # 运行（会自动保存和加载历史状态）
+    # 👉 和普通 invoke 的区别：
+    # 会自动：读取历史、保存新状态、恢复上下文
+    final_state = agent.invoke(state, config)
     
     return final_state
 
@@ -1242,4 +1325,516 @@ def main_view_kb():
 =============================================================================
 代码合集结束
 =============================================================================
+"""
+
+
+# =============================================================================
+# 文件: app.py
+# 说明: FastAPI Web 服务
+# =============================================================================
+
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+FastAPI 后端服务
+提供 /chat 接口，连接 LangGraph Agent with Memory
+"""
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
+from typing import Optional
+import uvicorn
+
+from src.llm import create_llm
+from src.tools import get_all_tools, create_tools_map
+from src.state import create_initial_state
+from src.rag import initialize_rag_system
+from src.langgraph_agent import run_langgraph_agent_with_memory
+
+
+# ============================================================
+# 1. FastAPI 应用初始化
+# ============================================================
+
+app = FastAPI(title="AI Research Agent API", version="1.0.0")
+
+# 配置 CORS（允许浏览器跨域访问）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 本地开发允许所有来源
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# ============================================================
+# 2. 全局变量（Agent 组件）
+# ============================================================
+
+llm = None
+tools_map = None
+
+
+# ============================================================
+# 3. 请求/响应模型
+# ============================================================
+
+class ChatRequest(BaseModel):
+    """聊天请求"""
+    message: str  # 用户消息
+    thread_id: Optional[str] = "default"  # 会话 ID（用于 Memory）
+
+
+class ChatResponse(BaseModel):
+    """聊天响应"""
+    answer: str  # Agent 回答
+    thread_id: str  # 会话 ID
+    message_count: int  # 当前对话历史消息数
+
+
+# ============================================================
+# 4. 启动事件（初始化 Agent）
+# ============================================================
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    服务启动时初始化 Agent 组件
+    """
+    global llm, tools_map
+    
+    print("\n" + "=" * 70)
+    print("🚀 正在启动 AI Research Agent 服务...")
+    print("=" * 70)
+    
+    # 初始化 LLM
+    print("\n[1/3] 初始化 LLM...")
+    llm = create_llm()
+    print("      ✅ LLM 初始化完成")
+    
+    # 初始化 RAG 系统
+    print("\n[2/3] 初始化 RAG 系统...")
+    initialize_rag_system(force_reload=False)
+    
+    # 加载工具
+    print("\n[3/3] 加载工具...")
+    tools = get_all_tools()
+    tools_map = create_tools_map(tools)
+    print(f"      ✅ 已加载 {len(tools)} 个工具: {', '.join(tools_map.keys())}")
+    
+    print("\n" + "=" * 70)
+    print("✅ AI Research Agent 服务启动成功!")
+    print("   访问地址: http://localhost:8000")
+    print("=" * 70 + "\n")
+
+
+# ============================================================
+# 5. API 端点
+# ============================================================
+
+@app.get("/")
+async def root():
+    """根路径 - 返回前端页面"""
+    return FileResponse("static/index.html")
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    """
+    聊天接口
+    
+    接收用户消息，调用 Agent，返回回答
+    支持 Memory（多轮对话）
+    """
+    try:
+        # 验证输入
+        if not request.message or not request.message.strip():
+            raise HTTPException(status_code=400, detail="消息不能为空")
+        
+        print(f"\n💬 收到消息 [thread_id={request.thread_id}]: {request.message}")
+        
+        # 创建初始状态
+        initial_state = create_initial_state(request.message)
+        
+        # 调用 Agent（带 Memory）
+        final_state = run_langgraph_agent_with_memory(
+            initial_state,
+            llm,
+            tools_map,
+            thread_id=request.thread_id
+        )
+        
+        # 提取答案
+        answer = final_state.get('final_answer', '抱歉，我无法回答这个问题')
+        message_count = len(final_state.get('messages', []))
+        
+        print(f"✅ 回答生成完成 [消息数={message_count}]")
+        
+        return ChatResponse(
+            answer=answer,
+            thread_id=request.thread_id,
+            message_count=message_count
+        )
+        
+    except Exception as e:
+        print(f"❌ 错误: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"服务器错误: {str(e)}")
+
+
+@app.get("/health")
+async def health():
+    """健康检查"""
+    return {"status": "ok", "message": "AI Research Agent is running"}
+
+
+# ============================================================
+# 6. 静态文件服务（前端）
+# ============================================================
+
+# 挂载静态文件目录
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# ============================================================
+# 7. 主函数
+# ============================================================
+
+if __name__ == "__main__":
+    # 启动服务
+    uvicorn.run(
+        "app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=False  # 生产环境关闭自动重载
+    )
+
+
+# =============================================================================
+# 文件: static/index.html
+# 说明: Web 聊天界面（Vue.js 3）
+# =============================================================================
+
+"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Research Agent - 聊天界面</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #app {
+            width: 90%;
+            max-width: 800px;
+            height: 90vh;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f7f7f7;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: #667eea;
+            color: white;
+        }
+
+        .message.agent .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message-label {
+            font-size: 12px;
+            margin-bottom: 4px;
+            opacity: 0.7;
+        }
+
+        .input-container {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-box {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+
+        .input-box:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 12px 32px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 24px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .new-chat-button {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .new-chat-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .info {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>🤖 AI Research Agent</h1>
+            <p>支持工具调用 · RAG 知识库 · 多轮对话记忆</p>
+            <button class="new-chat-button" @click="startNewChat">🆕 新对话</button>
+        </div>
+
+        <div class="chat-container" ref="chatContainer">
+            <div v-if="messages.length === 0" class="info">
+                👋 你好！我是 AI Research Agent，可以帮你计算、搜索知识库。开始聊天吧！
+            </div>
+            
+            <div v-for="(msg, index) in messages" :key="index" :class="['message', msg.role]">
+                <div>
+                    <div class="message-label">{{ msg.role === 'user' ? '👤 你' : '🤖 Agent' }}</div>
+                    <div class="message-content">{{ msg.content }}</div>
+                </div>
+            </div>
+
+            <div v-if="loading" class="loading">
+                ⏳ Agent 正在思考...
+            </div>
+        </div>
+
+        <div class="input-container">
+            <input 
+                v-model="userInput" 
+                @keyup.enter="sendMessage"
+                :disabled="loading"
+                class="input-box" 
+                type="text" 
+                placeholder="输入你的问题..."
+            />
+            <button 
+                @click="sendMessage" 
+                :disabled="loading || !userInput.trim()"
+                class="send-button"
+            >
+                {{ loading ? '发送中...' : '发送' }}
+            </button>
+        </div>
+
+        <div class="info">
+            会话 ID: {{ threadId }} | 消息数: {{ messageCount }}
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    messages: [],
+                    userInput: '',
+                    loading: false,
+                    threadId: this.generateThreadId(),
+                    messageCount: 0
+                }
+            },
+            methods: {
+                generateThreadId() {
+                    return 'web_' + Date.now();
+                },
+
+                startNewChat() {
+                    if (confirm('确定要开始新对话吗？当前对话历史将被清空。')) {
+                        this.messages = [];
+                        this.threadId = this.generateThreadId();
+                        this.messageCount = 0;
+                    }
+                },
+
+                async sendMessage() {
+                    const message = this.userInput.trim();
+                    if (!message || this.loading) return;
+
+                    // 添加用户消息到界面
+                    this.messages.push({
+                        role: 'user',
+                        content: message
+                    });
+
+                    // 清空输入框
+                    this.userInput = '';
+                    this.loading = true;
+
+                    // 滚动到底部
+                    this.$nextTick(() => {
+                        this.scrollToBottom();
+                    });
+
+                    try {
+                        // 调用后端 API
+                        const response = await fetch('http://localhost:8000/chat', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                message: message,
+                                thread_id: this.threadId
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+
+                        // 添加 Agent 回答到界面
+                        this.messages.push({
+                            role: 'agent',
+                            content: data.answer
+                        });
+
+                        // 更新消息计数
+                        this.messageCount = data.message_count;
+
+                        // 滚动到底部
+                        this.$nextTick(() => {
+                            this.scrollToBottom();
+                        });
+
+                    } catch (error) {
+                        console.error('Error:', error);
+                        this.messages.push({
+                            role: 'agent',
+                            content: '❌ 抱歉，发生了错误: ' + error.message
+                        });
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                scrollToBottom() {
+                    const container = this.$refs.chatContainer;
+                    container.scrollTop = container.scrollHeight;
+                }
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
 """

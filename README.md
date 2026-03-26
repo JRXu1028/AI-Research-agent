@@ -1,6 +1,6 @@
-# AI Research Agent（阶段四）
+# AI Research Agent（阶段五：Web 应用）
 
-基于 LangChain 和 ECNU API 的状态驱动 Agent 系统，支持原版 Agent 和 LangGraph 两种实现。
+基于 LangChain 和 ECNU API 的状态驱动 Agent 系统，支持命令行和 Web 两种使用方式。
 
 ## 项目特点
 
@@ -9,9 +9,10 @@
 - ✅ 支持工具调用（Tool Calling）
 - ✅ 集成 RAG 系统（检索增强生成）
 - ✅ 向量数据库（Chroma + HuggingFace Embeddings）
-- ✅ 两种 Agent 实现（原版 + LangGraph）
+- ✅ 三种 Agent 实现（原版 + LangGraph + LangGraph with Memory）
 - ✅ 标准 ReAct 模式（多轮推理）
 - ✅ Memory 支持（多轮对话记忆）
+- ✅ Web 应用（FastAPI + Vue.js）
 - ✅ 易于扩展和维护
 
 ## 技术栈
@@ -21,6 +22,8 @@
 - **向量数据库**: Chroma
 - **Embedding**: HuggingFace sentence-transformers
 - **API**: ECNU API（OpenAI 兼容）
+- **Web 框架**: FastAPI + Uvicorn
+- **前端**: Vue.js 3
 
 ## 项目结构
 
@@ -38,19 +41,22 @@ AI Research Agent/
 │   ├── vector_store.py       # 向量数据库
 │   ├── knowledge_base.py     # 知识库数据
 │   └── rag.py                # RAG 系统
+├── static/                    # 前端静态文件
+│   └── index.html            # Web 聊天界面
 ├── docs/                      # 文档目录
 │   ├── RAG_IMPLEMENTATION.md           # RAG 实现详解
 │   ├── LANGGRAPH_IMPLEMENTATION.md     # LangGraph 实现详解
 │   └── MEMORY_IMPLEMENTATION.md        # Memory 实现详解
 ├── data/                      # 数据目录
 │   └── chroma_db/            # 向量数据库持久化
+├── app.py                     # FastAPI Web 服务
 ├── main.py                    # 原版 Agent 演示
 ├── main_langgraph.py          # LangGraph Agent 演示
 ├── main_langgraph_memory.py   # LangGraph Agent with Memory 演示
 ├── view_knowledge_base.py     # 查看知识库工具
 ├── ALL_CODE.py                # 完整代码合集（方便分享给 AI）
-├── ALL_CODE_README.md         # 代码合集使用说明
-├── QUICKSTART.md              # 快速上手指南
+├── QUICKSTART.md              # 快速上手指南（命令行）
+├── WEB_QUICKSTART.md          # Web 应用快速启动指南
 ├── requirements.txt           # 依赖列表
 ├── .env.example              # 环境变量模板
 └── README.md                 # 本文件
@@ -82,31 +88,30 @@ AI Research Agent/
 
 ## 快速开始
 
-### 1. 安装依赖
+### 方式一：Web 应用（推荐）
 
+**1. 安装依赖**
 ```bash
-# 激活虚拟环境（如果使用）
-conda activate AIResearch
-
-# 安装依赖
 pip install -r requirements.txt
 ```
 
-### 2. 配置 API Key
-
-复制 `.env.example` 为 `.env`：
-
+**2. 配置 API Key**
 ```bash
 cp .env.example .env
+# 编辑 .env 文件，填入你的 ECNU API Key
 ```
 
-编辑 `.env` 文件，填入你的 ECNU API Key：
-
+**3. 启动 Web 服务**
+```bash
+python app.py
 ```
-ECNU_API_KEY=你的实际API密钥
-```
 
-### 3. 运行程序
+**4. 打开浏览器**
+访问：http://localhost:8000
+
+> 💡 详细说明请查看 [WEB_QUICKSTART.md](WEB_QUICKSTART.md)
+
+### 方式二：命令行
 
 **原版 Agent**（while 循环实现）：
 ```bash
@@ -405,11 +410,11 @@ A: 使用 `ALL_CODE.py` 文件，包含了所有代码，方便复制粘贴给 A
 
 ## 文档
 
-- **[QUICKSTART.md](QUICKSTART.md)** - 5分钟快速上手指南
+- **[WEB_QUICKSTART.md](WEB_QUICKSTART.md)** - Web 应用快速启动指南
+- **[QUICKSTART.md](QUICKSTART.md)** - 命令行快速上手指南
 - **[docs/RAG_IMPLEMENTATION.md](docs/RAG_IMPLEMENTATION.md)** - RAG 系统实现详解
 - **[docs/LANGGRAPH_IMPLEMENTATION.md](docs/LANGGRAPH_IMPLEMENTATION.md)** - LangGraph Agent 实现详解
 - **[docs/MEMORY_IMPLEMENTATION.md](docs/MEMORY_IMPLEMENTATION.md)** - Memory 功能实现详解
-- **[ALL_CODE_README.md](ALL_CODE_README.md)** - 代码合集使用说明
 
 ## 为什么选择这个架构？
 
