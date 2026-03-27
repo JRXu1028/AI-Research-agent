@@ -1,9 +1,10 @@
 """
 RAG 模块
 实现检索增强生成
+支持 Chroma 和 PostgreSQL 两种向量数据库
 """
 
-from .vector_store import VectorStore
+from .config import Config
 
 # 全局 RAG 系统实例
 _rag_system_instance = None
@@ -12,12 +13,12 @@ _rag_system_instance = None
 class RAGSystem:
     """RAG 系统类"""
     
-    def __init__(self, vector_store: VectorStore):
+    def __init__(self, vector_store):
         """
         初始化 RAG 系统
         
         Args:
-            vector_store: 向量数据库
+            vector_store: 向量数据库实例
         """
         self.vector_store = vector_store
     
@@ -46,6 +47,7 @@ class RAGSystem:
 def initialize_rag_system(force_reload=False):
     """
     初始化全局 RAG 系统
+    根据配置选择 Chroma 或 PostgreSQL
     
     Args:
         force_reload: 是否强制重新加载向量数据库
@@ -53,22 +55,24 @@ def initialize_rag_system(force_reload=False):
     Returns:
         RAGSystem 实例
     """
-    # 声明使用全局变量 _rag_system_instance
-    # 用于保存已经初始化好的 RAG 系统实例
     global _rag_system_instance
     
-    # 如果还没有初始化，或者强制重新加载
     if _rag_system_instance is None or force_reload:
-        from .vector_store import create_vector_store
-        
         print("   📚 初始化知识库...")
+        
+        # 根据配置选择向量数据库类型
+        vector_store_type = Config.VECTOR_STORE_TYPE
+        print(f"   📦 使用向量数据库: {vector_store_type}")
+        
+        if vector_store_type == "postgres":
+            from .vector_store_pg import create_vector_store
+        else:
+            from .vector_store import create_vector_store
+        
         vector_store = create_vector_store(force_reload=force_reload)
-        # 使用向量数据库初始化 RAG 系统
-        # 并将实例保存到全局变量中（单例）
         _rag_system_instance = RAGSystem(vector_store)
         print("   ✅ 知识库初始化完成")
     
-    # 返回全局 RAG 系统实例
     return _rag_system_instance
 
 
